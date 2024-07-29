@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Web site created using create-react-app"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>Crescendo c7o</title>
+  </head>
+  <body style="background: #efefef;">
+    <div style="display: flex; align-items: center; justify-content: center;">
+      <div id="react-widget-root" style="width: 300px; height: 400px; margin-top: 50px;"></div>
+    </div>
+
+    <script>
+      (function() {
+        fetch('%PUBLIC_URL%/asset-manifest.json')
+          .then(response => response.json())
+          .then(manifest => {
+            const mainScript = document.createElement('script');
+            mainScript.src = manifest.files['main.js'];
+            document.body.appendChild(mainScript);
+          })
+          .catch(error => {
+            console.error('Error loading main.js:', error);
+          })
+          .then(() => {
+            setTimeout(() => {
+              // Call the renderWidget function with the ID of the root element and parameters
+              window.renderWidget({
+                elementId: 'react-widget-root',
+                publicApiKey: '3e4fd1ed-7902-49dd-814d-79b9b003976d',
+                assistantId: '14fb9f06-ec25-4b3d-8781-4ae190395a75',
+              });
+            }, 1000)
+          })
+      })();
+    </script>
+  </body>
+</html>
