@@ -1,5 +1,6 @@
 import React from 'react';
-import Widget from './components/Widget';
+// import Widget from './components/Widget';
+import WidgetTwilio from './components/WidgetTwilio';
 
 interface AppProps {
   publicApiKey: string;
@@ -8,7 +9,8 @@ interface AppProps {
 
 const App: React.FC<AppProps> = ({ publicApiKey, assistantId }) => (
   <div className="App">
-    <Widget publicApiKey={publicApiKey} assistantId={assistantId} />
+    {/* <Widget publicApiKey={publicApiKey} assistantId={assistantId} /> */}
+    <WidgetTwilio />
   </div>
 );
 

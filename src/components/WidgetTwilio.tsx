@@ -1,48 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import Vapi from "@vapi-ai/web";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Spinner } from './Spinner';
+import { MuteIconOff, MuteIconOn, PhoneCallIcon, PhoneIcon, VolumeIcon } from './Widget';
+import axios from 'axios';
+import { Call, Device } from '@twilio/voice-sdk';
 
-export const PhoneIcon = (
-  <svg stroke="white" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="40px" width="40px" xmlns="http://www.w3.org/2000/svg"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-);
-
-export const PhoneCallIcon = (
-  <svg stroke="white" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="40px" width="40px" xmlns="http://www.w3.org/2000/svg"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path><path d="M14.05 2a9 9 0 0 1 8 7.94"></path><path d="M14.05 6A5 5 0 0 1 18 10"></path></svg>
-);
-
-export const MuteIconOn = (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="1" y1="1" x2="23" y2="23"></line>
-    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
-    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
-    <line x1="12" y1="19" x2="12" y2="23"></line>
-    <line x1="8" y1="23" x2="16" y2="23"></line>
-  </svg>
-);
-
-export const MuteIconOff = (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-    <line x1="12" y1="19" x2="12" y2="23"></line>
-    <line x1="8" y1="23" x2="16" y2="23"></line>
-  </svg>
-);
-
-export const VolumeIcon = (level: number) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-    {level > 0 && <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>}
-    {level > 1 && <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>}
-  </svg>
-);
-
-interface WidgetProps {
-  publicApiKey: string;
-  assistantId: string;
-}
-
-const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
+const Widget: React.FC<{}> = () => {
   // State declarations
   const [isMuted, setIsMuted] = useState(false);
   const [volumeLevel, setVolumeLevel] = useState(2);
@@ -51,16 +13,63 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
   const [userVoiceVolume, setUserVoiceVolume] = useState(0);
   const [aiVoiceVolume, setAiVoiceVolume] = useState(0);
   const [didAiStartSpeaking, setDidAiStartSpeaking] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [device, setDevice] = useState<Device | null>(null);
+
+  const [initialized, setInitialized] = useState(false)
 
   const isWaiting = isOnCall && !didAiStartSpeaking
 
-  // Refs for audio context
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
-
   // Initialize Vapi
-  const vapi = useMemo(() => new Vapi(publicApiKey), [publicApiKey]);
+  const getToken = useCallback(async () => {
+    try {
+      const response = await axios.get('https://twiliotoken-jbjduy4apa-uc.a.run.app/token');
+      setToken(response.data.token);
+      return response.data.token
+    } catch (error) {
+      console.error('Error getting token:', error);
+    }
+  }, []);
+
+  const initializeDevice = useCallback((token: string) => {
+    const newDevice = new Device(token, {
+      logLevel: 1,
+      codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
+    });
+    setDevice(newDevice);
+    newDevice.register();
+
+    const registered = () => {
+      console.log('Twilio.Device Ready to make and receive calls!');
+    }
+    newDevice.on('registered', registered);
+
+    const onError = (err: any) => {
+      console.log('Twilio.Device Error: ' + err.message);
+    }
+    newDevice.on('error', onError);
+
+    const deviceChange = () => {
+      console.log('Audio devices changed.');
+    }
+    newDevice.audio?.on('deviceChange', deviceChange);
+
+    setInitialized(true)
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const token = await getToken()
+      initializeDevice(token)
+    })()
+  }, [getToken, initializeDevice])
+
+  useEffect(() => {
+    return () => {
+      device?.audio?.removeAllListeners()
+      device?.removeAllListeners()
+    }
+  }, [device])
 
   // Helper function to format time
   const formatTime = (seconds: number) => {
@@ -80,103 +89,58 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
     return () => clearInterval(interval);
   }, [isOnCall, didAiStartSpeaking]);
 
-  // Function to set up audio
-  const setupAudio = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
-
-      const bufferLength = analyserRef.current.frequencyBinCount;
-      dataArrayRef.current = new Uint8Array(bufferLength);
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-    }
-  };
-
-  // Function to get voice volume
-  const getVoiceVolume = () => {
-    if (analyserRef.current && dataArrayRef.current) {
-      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-      const average = dataArrayRef.current.reduce((acc, val) => acc + val, 0) / dataArrayRef.current.length;
-      return average / 255; // Normalize to 0-1 range
-    }
-    return 0;
-  };
-
-  // Effect for voice volume
-  useEffect(() => {
-    let animationFrame: number = 0;
-
-    const updateVoiceVolume = () => {
-      if (isOnCall && !isMuted && didAiStartSpeaking) {
-        const volume = getVoiceVolume();
-        setUserVoiceVolume(volume);
-      } else {
-        setUserVoiceVolume(0);
-      }
-      animationFrame = requestAnimationFrame(updateVoiceVolume);
-    };
-
-    if (isOnCall && !isMuted && didAiStartSpeaking) {
-      setupAudio().then(() => {
-        updateVoiceVolume();
-      });
-    } else {
-      cancelAnimationFrame(animationFrame);
-      setUserVoiceVolume(0);
-    }
-
-    return () => {
-      cancelAnimationFrame(animationFrame);
-      if (audioContextRef.current) {
-        if (audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.close();
-        }
-      }
-    };
-  }, [isOnCall, isMuted, didAiStartSpeaking]);
-
   // Function to toggle call
-  const toggleCall = () => {
+  const [call, setCall] = useState<Call | undefined>()
+  const toggleCall = async () => {
+    if (!initialized) {
+      return
+    }
+
     setIsOnCall((prev) => !prev);
 
     if (isOnCall) {
-      vapi.setMuted(false);
       setIsMuted(false)
-      vapi.stop();
+
+      // STOP CALL
+      device?.disconnectAll()
+      call?.removeAllListeners()
 
       setDidAiStartSpeaking(false);
       setTimer(0);
     } else {
-      vapi.start(assistantId);
+      // START CALL
+      const params = {
+        // get the phone number to call from the DOM
+        To: '+16507501352',
+      };
+
+      if (device) {
+        console.log(`Attempting to call ${params.To} ...`);
+
+        // Twilio.Device.connect() returns a Call object
+        const newCall = await device.connect({ params });
+
+        // add listeners to the Call
+        // "accepted" means the call has finished connecting and the state is now "open"
+        newCall.on("accept", () => {
+          setDidAiStartSpeaking(true);
+        });
+        newCall.on("disconnect", () => {
+        });
+        newCall.on("cancel", () => {
+        });
+
+        newCall.on("volume", function (inputVolume, outputVolume) {
+          setUserVoiceVolume(inputVolume)
+          setAiVoiceVolume(outputVolume)
+        });
+
+        setCall(newCall)
+      } else {
+        console.log("Unable to make call. No Device");
+      }
     }
   };
-
-  // Effect for AI voice volume
-  useEffect(() => {
-    if (!isOnCall) {
-      return;
-    }
-
-    const volumeLevelListener = (volume: number) => {
-      setAiVoiceVolume(volume);
-      if (volume > 0) {
-        setDidAiStartSpeaking(true);
-      }
-    };
-
-    vapi.on("volume-level", volumeLevelListener);
-
-    return () => {
-      setAiVoiceVolume(0);
-      setDidAiStartSpeaking(false);
-      vapi.removeListener('volume-level', volumeLevelListener);
-    };
-  }, [isOnCall, vapi]);
 
   // Function to toggle mute
   const toggleMute = () => {
@@ -185,9 +149,9 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
     }
 
     if (isMuted) { 
-      vapi.setMuted(false);
+      // vapi.setMuted(false);
     } else {
-      vapi.setMuted(true);
+      // vapi.setMuted(true);
     }
 
     setIsMuted((prev) => !prev)
@@ -231,6 +195,7 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
           justifyContent: 'center',
           alignItems: 'center',
           position: 'relative',
+          opacity: initialized ? 1 : 0.25,
         }}>
         <div
           onClick={toggleCall}
