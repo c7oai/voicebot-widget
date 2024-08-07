@@ -11,12 +11,16 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vapi-ai/web": "^2.1.0",
+    "cors": "^2.8.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
+    "twilio-client": "^1.15.1",
     "typescript": "^4.9.5",
+    "util": "^0.12.5",
     "web-vitals": "^2.1.4"
   },
+  "proxy": "https://quickstart-voice-javascript-sdk-6444-dev.twil.io",
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",

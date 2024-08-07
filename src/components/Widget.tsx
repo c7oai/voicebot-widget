@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Vapi from "@vapi-ai/web";
+import { Device, Connection } from 'twilio-client';
 import { Spinner } from './Spinner';
 
 const PhoneIcon = (
@@ -52,6 +53,99 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
   const [aiVoiceVolume, setAiVoiceVolume] = useState(0);
   const [didAiStartSpeaking, setDidAiStartSpeaking] = useState(false);
 
+  // Twilio related state
+  const [device, setDevice] = useState<Device | null>(null);
+  const [accessToken, setAccessToken] = useState<string>('');
+
+  const addDeviceListeners = async (device: any) => {
+    device.on('registered', function () {
+      console.log('Twilio.Device Ready to make and receive calls!');
+    });
+
+    device.on('error', function (error: any) {
+      console.log(`Twilio.Device Error: ${error.message}`);
+    });
+
+    // device.audio.on('deviceChange', updateAllAudioDevices.bind(device));
+  }
+
+  const connectMediaDevice = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+    }
+  };
+
+  const initializeTwilioDevice = async () => {
+    console.log('Requesting Access Token...');
+    try {
+      const response = await fetch('/voice-token');
+      const { token, identity } = await response.json();
+      console.log('Got a token.', token);
+      setAccessToken(token);
+      console.log('Initializing device');
+
+      const newDevice = new Device(token, {
+        debug: true,
+        answerOnBridge: true,
+        // codecPreferences: ['opus', 'pcmu'],
+      });
+
+      await addDeviceListeners(newDevice);
+
+      // newDevice.on('registered', () => console.log('Twilio.Device Ready to make and receive calls!'));
+      // newDevice.on('error', (error) => console.log(`Twilio.Device Error: ${error.message}`));
+      
+      // choose a speaker to set for the twilio device
+      const audioDevices = await navigator.mediaDevices.enumerateDevices();
+      const defaultSpeaker = audioDevices.find(device => device.kind === 'audiooutput' && device.label.includes('Default'));
+      
+      newDevice.audio?.speakerDevices.set("default");
+      newDevice.audio?.ringtoneDevices.set("default");
+
+      console.log("Device created...")
+      console.log(newDevice)
+
+      console.log("Device speaker: ", newDevice.audio?.speakerDevices.get())
+
+      setDevice(newDevice);
+
+      // let call = await newDevice.connect({
+      //     To: '+16507501352'
+      // });
+    } catch (err) {
+      console.log(err);
+      console.log('An error occurred. See your browser console for more information.');
+    }
+  };
+
+  const makeOutgoingCall = async () => {
+    const params = {
+      To: '+16507501352',
+    };
+
+    console.log("Starting to make an outbound call ...")
+
+    console.log(`Attempting to call ${params.To} ...`);
+
+    try {
+      const call = await device?.connect(params);
+
+      call?.on('accept', () => console.log('Call in progress ...'));
+      call?.on('disconnect', () => {
+        console.log('Call disconnected.');
+      });
+      call?.on('cancel', () => console.log('Call cancelled.'));
+      call?.on('reject', () => console.log('Call rejected.'));
+
+    } catch (error) {
+      console.log('Failed to make call.');
+      console.log(error);
+    }
+  };
+
   const isWaiting = isOnCall && !didAiStartSpeaking
 
   // Refs for audio context
@@ -60,7 +154,7 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
   const dataArrayRef = useRef<Uint8Array | null>(null);
 
   // Initialize Vapi
-  const vapi = useMemo(() => new Vapi(publicApiKey), [publicApiKey]);
+  // const vapi = useMemo(() => new Vapi(publicApiKey), [publicApiKey]);
 
   // Helper function to format time
   const formatTime = (seconds: number) => {
@@ -145,14 +239,19 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
     setIsOnCall((prev) => !prev);
 
     if (isOnCall) {
-      vapi.setMuted(false);
-      setIsMuted(false)
-      vapi.stop();
+      // vapi.setMuted(false);
+      setIsMuted(false);
+      // vapi.stop();
+
+      // hangup the call here
 
       setDidAiStartSpeaking(false);
       setTimer(0);
     } else {
-      vapi.start(assistantId);
+      // vapi.start(assistantId);
+      connectMediaDevice()
+      .then(() => initializeTwilioDevice())
+      .then(() => makeOutgoingCall)
     }
   };
 
@@ -162,21 +261,21 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
       return;
     }
 
-    const volumeLevelListener = (volume: number) => {
-      setAiVoiceVolume(volume);
-      if (volume > 0) {
-        setDidAiStartSpeaking(true);
-      }
-    };
+    // const volumeLevelListener = (volume: number) => {
+    //   setAiVoiceVolume(volume);
+    //   if (volume > 0) {
+    //     setDidAiStartSpeaking(true);
+    //   }
+    // };
 
-    vapi.on("volume-level", volumeLevelListener);
+    // vapi.on("volume-level", volumeLevelListener);
 
     return () => {
       setAiVoiceVolume(0);
       setDidAiStartSpeaking(false);
-      vapi.removeListener('volume-level', volumeLevelListener);
+      // vapi.removeListener('volume-level', volumeLevelListener);
     };
-  }, [isOnCall, vapi]);
+  }, [isOnCall]);
 
   // Function to toggle mute
   const toggleMute = () => {
@@ -185,9 +284,9 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
     }
 
     if (isMuted) { 
-      vapi.setMuted(false);
+      // vapi.setMuted(false);
     } else {
-      vapi.setMuted(true);
+      // vapi.setMuted(true);
     }
 
     setIsMuted((prev) => !prev)
