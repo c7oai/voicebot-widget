@@ -1,17 +1,27 @@
-import React from 'react';
+import React from 'react'
 // import Widget from './components/Widget';
-import WidgetTwilio from './components/WidgetTwilio';
+import WidgetTwilio from './components/WidgetTwilio'
+import { WidgetParams } from '.'
+import Widget from './components/Widget'
 
-interface AppProps {
-  publicApiKey: string;
-  assistantId: string;
+const App: React.FC<WidgetParams> = widgetParams => {
+  if (widgetParams.mode === 'vapi') {
+    return (
+      <div className="App">
+        <Widget {...widgetParams} />
+      </div>
+    )
+  }
+
+  if (widgetParams.mode === 'twilio') {
+    return (
+      <div className="App">
+        <WidgetTwilio {...widgetParams} />
+      </div>
+    )
+  }
+
+  return <></>
 }
 
-const App: React.FC<AppProps> = ({ publicApiKey, assistantId }) => (
-  <div className="App">
-    {/* <Widget publicApiKey={publicApiKey} assistantId={assistantId} /> */}
-    <WidgetTwilio />
-  </div>
-);
-
-export default App;
+export default App

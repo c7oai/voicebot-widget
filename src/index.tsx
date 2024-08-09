@@ -1,20 +1,22 @@
-import React from 'react';
-import App from './App';
-import { createRoot } from 'react-dom/client';
+import React from 'react'
+import App from './App'
+import { createRoot } from 'react-dom/client'
 
-interface WidgetParams {
-  elementId: string;
-  publicApiKey: string;
-  assistantId: string;
+export interface WidgetParams {
+  elementId: string
+  mode: 'vapi' | 'twilio'
+  apiKey: string
+  assistantId: string
+  phoneNumber: string
 }
 
-const renderWidget = ({ elementId, publicApiKey, assistantId }: WidgetParams) => {
-  const rootElement = document.getElementById(elementId);
+const renderWidget = (widgetParams: WidgetParams) => {
+  const rootElement = document.getElementById(widgetParams.elementId)
   if (rootElement) {
-    const root = createRoot(rootElement);
-    root.render(<App publicApiKey={publicApiKey} assistantId={assistantId} />);
+    const root = createRoot(rootElement)
+    root.render(<App {...widgetParams} />)
   }
-};
+}
 
 // Expose the renderWidget function to the global window object
-(window as any).renderWidget = renderWidget;
+;(window as any).renderWidget = renderWidget
