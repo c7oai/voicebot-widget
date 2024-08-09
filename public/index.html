@@ -10,9 +10,13 @@
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>c7o Voice</title>
+    <title>Flair Caller</title>
   </head>
   <body style="background: #25252f;">
+    <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
+      <div id="react-widget-root" style="margin-top: 50px;"></div>
+      <img id="c7o-logo" src="/crescendo-logo.svg" height="40" style="margin-top: 40px; opacity: 0.7; display: none;"/>
+    </div>
 
     <script>
       (function() {
@@ -41,6 +45,7 @@
                 // mode: 'twilio',
                 // phoneNumber: '+16507501352',
               });
+              document.getElementById('c7o-logo').style.display = 'block'
             }, 1000)
           })
       })();
