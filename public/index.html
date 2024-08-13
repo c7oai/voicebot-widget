@@ -12,9 +12,10 @@
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>Flair Caller</title>
   </head>
-  <body style="background: #efefef;">
-    <div style="display: flex; align-items: center; justify-content: center;">
-      <div id="react-widget-root" style="width: 300px; height: 400px; margin-top: 50px;"></div>
+  <body style="background: #25252f;">
+    <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
+      <div id="react-widget-root" style="margin-top: 50px;"></div>
+      <img id="c7o-logo" src="/crescendo-logo.svg" height="40" style="margin-top: 40px; opacity: 0.7; display: none;"/>
     </div>
 
     <script>
@@ -34,9 +35,17 @@
               // Call the renderWidget function with the ID of the root element and parameters
               window.renderWidget({
                 elementId: 'react-widget-root',
-                publicApiKey: '3e4fd1ed-7902-49dd-814d-79b9b003976d',
+
+                // For Vapi
+                mode: 'vapi',
+                apiKey: '3e4fd1ed-7902-49dd-814d-79b9b003976d',
                 assistantId: '14fb9f06-ec25-4b3d-8781-4ae190395a75',
+
+                // For Twilio
+                // mode: 'twilio',
+                // phoneNumber: '+16507501352',
               });
+              document.getElementById('c7o-logo').style.display = 'block'
             }, 1000)
           })
       })();

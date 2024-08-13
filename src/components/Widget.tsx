@@ -1,182 +1,172 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import Vapi from "@vapi-ai/web";
-import { Spinner } from './Spinner';
-
-export const PhoneIcon = (
-  <svg stroke="white" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="40px" width="40px" xmlns="http://www.w3.org/2000/svg"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-);
-
-export const PhoneCallIcon = (
-  <svg stroke="white" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="40px" width="40px" xmlns="http://www.w3.org/2000/svg"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path><path d="M14.05 2a9 9 0 0 1 8 7.94"></path><path d="M14.05 6A5 5 0 0 1 18 10"></path></svg>
-);
-
-export const MuteIconOn = (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="1" y1="1" x2="23" y2="23"></line>
-    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
-    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
-    <line x1="12" y1="19" x2="12" y2="23"></line>
-    <line x1="8" y1="23" x2="16" y2="23"></line>
-  </svg>
-);
-
-export const MuteIconOff = (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-    <line x1="12" y1="19" x2="12" y2="23"></line>
-    <line x1="8" y1="23" x2="16" y2="23"></line>
-  </svg>
-);
-
-export const VolumeIcon = (level: number) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-    {level > 0 && <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>}
-    {level > 1 && <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>}
-  </svg>
-);
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import Vapi from '@vapi-ai/web'
+import { Spinner } from './Spinner'
+import { MuteIconOff, MuteIconOn, PhoneCallIcon, PhoneIcon, VolumeIcon } from './Icons'
+import { VolumeVisualizer } from './VolumeVisualizer'
+import { useTypewriterEffect } from './TypeWriter'
 
 interface WidgetProps {
-  publicApiKey: string;
-  assistantId: string;
+  apiKey: string
+  assistantId: string
 }
 
-const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
+const Widget: React.FC<WidgetProps> = ({ apiKey, assistantId }) => {
   // State declarations
-  const [isMuted, setIsMuted] = useState(false);
-  const [volumeLevel, setVolumeLevel] = useState(2);
-  const [isOnCall, setIsOnCall] = useState(false);
-  const [timer, setTimer] = useState(0);
-  const [userVoiceVolume, setUserVoiceVolume] = useState(0);
-  const [aiVoiceVolume, setAiVoiceVolume] = useState(0);
-  const [didAiStartSpeaking, setDidAiStartSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false)
+  const [volumeLevel, setVolumeLevel] = useState(2)
+  const [isOnCall, setIsOnCall] = useState(false)
+  const [timer, setTimer] = useState(0)
+  const [userVoiceVolume, setUserVoiceVolume] = useState(0)
+  const [aiVoiceVolume, setAiVoiceVolume] = useState(0)
+  const [didAiStartSpeaking, setDidAiStartSpeaking] = useState(false)
+
+  const [initialized, setInitialized] = useState(true)
+
+  const [currentMessage, setCurrentMessage] = useState('')
+  const typedText = useTypewriterEffect(currentMessage, 10)
 
   const isWaiting = isOnCall && !didAiStartSpeaking
 
   // Refs for audio context
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const dataArrayRef = useRef<Uint8Array | null>(null)
 
   // Initialize Vapi
-  const vapi = useMemo(() => new Vapi(publicApiKey), [publicApiKey]);
+  const vapi = useMemo(() => new Vapi(apiKey), [apiKey])
 
   // Helper function to format time
   const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
 
   // Effect for timer
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: NodeJS.Timeout
     if (isOnCall && didAiStartSpeaking) {
       interval = setInterval(() => {
-        setTimer((prevTimer) => prevTimer + 1);
-      }, 1000);
+        setTimer(prevTimer => prevTimer + 1)
+      }, 1000)
     }
-    return () => clearInterval(interval);
-  }, [isOnCall, didAiStartSpeaking]);
+    return () => clearInterval(interval)
+  }, [isOnCall, didAiStartSpeaking])
 
   // Function to set up audio
   const setupAudio = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+      analyserRef.current = audioContextRef.current.createAnalyser()
+      analyserRef.current.fftSize = 256
+      source.connect(analyserRef.current)
 
-      const bufferLength = analyserRef.current.frequencyBinCount;
-      dataArrayRef.current = new Uint8Array(bufferLength);
+      const bufferLength = analyserRef.current.frequencyBinCount
+      dataArrayRef.current = new Uint8Array(bufferLength)
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error('Error accessing microphone:', error)
     }
-  };
+  }
 
   // Function to get voice volume
   const getVoiceVolume = () => {
     if (analyserRef.current && dataArrayRef.current) {
-      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-      const average = dataArrayRef.current.reduce((acc, val) => acc + val, 0) / dataArrayRef.current.length;
-      return average / 255; // Normalize to 0-1 range
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current)
+      const average =
+        dataArrayRef.current.reduce((acc, val) => acc + val, 0) / dataArrayRef.current.length
+      return average / 255 // Normalize to 0-1 range
     }
-    return 0;
-  };
+    return 0
+  }
 
   // Effect for voice volume
   useEffect(() => {
-    let animationFrame: number = 0;
+    let animationFrame: number = 0
 
     const updateVoiceVolume = () => {
       if (isOnCall && !isMuted && didAiStartSpeaking) {
-        const volume = getVoiceVolume();
-        setUserVoiceVolume(volume);
+        const volume = getVoiceVolume()
+        setUserVoiceVolume(volume)
       } else {
-        setUserVoiceVolume(0);
+        setUserVoiceVolume(0)
       }
-      animationFrame = requestAnimationFrame(updateVoiceVolume);
-    };
+      animationFrame = requestAnimationFrame(updateVoiceVolume)
+    }
 
     if (isOnCall && !isMuted && didAiStartSpeaking) {
       setupAudio().then(() => {
-        updateVoiceVolume();
-      });
+        updateVoiceVolume()
+      })
     } else {
-      cancelAnimationFrame(animationFrame);
-      setUserVoiceVolume(0);
+      cancelAnimationFrame(animationFrame)
+      setUserVoiceVolume(0)
     }
 
     return () => {
-      cancelAnimationFrame(animationFrame);
+      cancelAnimationFrame(animationFrame)
       if (audioContextRef.current) {
         if (audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.close();
+          audioContextRef.current.close()
         }
       }
-    };
-  }, [isOnCall, isMuted, didAiStartSpeaking]);
+    }
+  }, [isOnCall, isMuted, didAiStartSpeaking])
 
   // Function to toggle call
   const toggleCall = () => {
-    setIsOnCall((prev) => !prev);
+    setIsOnCall(prev => !prev)
 
     if (isOnCall) {
-      vapi.setMuted(false);
+      vapi.setMuted(false)
       setIsMuted(false)
-      vapi.stop();
+      vapi.stop()
 
-      setDidAiStartSpeaking(false);
-      setTimer(0);
+      setAiVoiceVolume(0)
+      setDidAiStartSpeaking(false)
+      setCurrentMessage('')
+      setTimer(0)
     } else {
-      vapi.start(assistantId);
+      vapi.start(assistantId)
     }
-  };
+  }
 
   // Effect for AI voice volume
   useEffect(() => {
     if (!isOnCall) {
-      return;
+      return
     }
 
     const volumeLevelListener = (volume: number) => {
-      setAiVoiceVolume(volume);
+      setAiVoiceVolume(volume)
       if (volume > 0) {
-        setDidAiStartSpeaking(true);
+        setDidAiStartSpeaking(true)
       }
-    };
+    }
 
-    vapi.on("volume-level", volumeLevelListener);
+    const messageListener = (message: any) => {
+      console.log('message', message)
+      if (
+        message.type === 'transcript' &&
+        message.role === 'assistant' &&
+        message.transcriptType === 'final'
+      ) {
+        setCurrentMessage(message.transcript)
+      }
+    }
+
+    vapi.on('volume-level', volumeLevelListener)
+    vapi.on('message', messageListener)
 
     return () => {
-      setAiVoiceVolume(0);
-      setDidAiStartSpeaking(false);
-      vapi.removeListener('volume-level', volumeLevelListener);
-    };
-  }, [isOnCall, vapi]);
+      setAiVoiceVolume(0)
+      setDidAiStartSpeaking(false)
+      setCurrentMessage('')
+      vapi.removeListener('volume-level', volumeLevelListener)
+      vapi.removeListener('message', messageListener)
+    }
+  }, [isOnCall, vapi])
 
   // Function to toggle mute
   const toggleMute = () => {
@@ -184,164 +174,199 @@ const Widget: React.FC<WidgetProps> = ({ publicApiKey, assistantId }) => {
       return
     }
 
-    if (isMuted) { 
-      vapi.setMuted(false);
+    if (isMuted) {
+      vapi.setMuted(false)
     } else {
-      vapi.setMuted(true);
+      vapi.setMuted(true)
     }
 
-    setIsMuted((prev) => !prev)
-  };
+    setIsMuted(prev => !prev)
+  }
 
   // Function to change volume
-  const changeVolume = () => setVolumeLevel((prev) => (prev + 1) % 4);
+  const changeVolume = () => setVolumeLevel(prev => (prev + 1) % 4)
 
   // Render component
   return (
-    <div style={{
-      width: '300px',
-      height: '400px',
-      background: 'linear-gradient(135deg, #3f3f4f, #4a4a5e)',
-      borderRadius: '20px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'space-around',
-      padding: '20px',
-      boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
-      userSelect: 'none',
-      overflow: 'hidden',
-      position: 'relative',
-      boxSizing: 'border-box',
-    }}>
+    <div
+      style={{
+        width: '1024px',
+        height: '640px',
+        background: 'linear-gradient(135deg, #3f3f4f, #4a4a5e)',
+        borderRadius: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        padding: '20px',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
+        userSelect: 'none',
+        overflow: 'hidden',
+        position: 'relative',
+        boxSizing: 'border-box',
+      }}>
       <style>
-      {`@keyframes rotate-background {
+        {`@keyframes rotate-background {
           0%{background-position:10% 0%}
           50%{background-position:91% 100%}
           100%{background-position:10% 0%}
         }`}
       </style>
-      {/* Call button with double ring */}
+
       <div
         style={{
-          width: '120px',
-          height: '120px',
-          borderRadius: '50%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          position: 'relative',
+          position: 'absolute',
+          top: 40,
+          color: 'white',
+          fontSize: '24px',
+          fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+          textAlign: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
+          paddingLeft: 60,
+          paddingRight: 60,
+          opacity: 0.5,
         }}>
-        <div
-          onClick={toggleCall}
-          style={{
-            position: 'absolute',
-            width: '120px',
-            height: '120px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7fffd4, #4169e1)',
-            backgroundSize: '130% 130%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            cursor: 'pointer',
-            boxShadow: '0px 3px 15px rgba(0,0,0,0.05)',
-            animation: 'rotate-background 5s linear infinite',
-            zIndex: 3,
-            transition: 'filter 0.3s ease',
-          }}
-          onMouseDown={(event) => {
-            // Apply a darker filter when clicked
-            event.currentTarget.style.filter = 'brightness(0.8)';
-          }}
-          onMouseUp={(event) => {
-            // Remove the darker filter when released
-            event.currentTarget.style.filter = '';
-          }}
-          onMouseEnter={(event) => {
-            // Apply a slightly dark filter on hover
-            event.currentTarget.style.filter = 'brightness(0.9)';
-          }}
-          onMouseLeave={(event) => {
-            // Remove the hover effect
-            event.currentTarget.style.filter = '';
-          }}
-        >
-          {isOnCall && didAiStartSpeaking
-            ? PhoneCallIcon
-            : isWaiting
-            ? <Spinner />
-            : PhoneIcon
-          }
-        </div>
-        {/* AI ring (blue) */}
-        <div style={{
-          position: 'absolute',
-          width: `${120 + (aiVoiceVolume * 50)}px`,
-          height: `${120 + (aiVoiceVolume * 50)}px`,
-          borderRadius: '50%',
-          border: '2px solid black',
-          background: 'black',
-          opacity: isOnCall && didAiStartSpeaking ? 0.1 : 0,
-          transition: 'all 0.1s',
-        }}></div>
-        {/* Person ring (green) */}
-        <div style={{
-          position: 'absolute',
-          width: `${120 + (userVoiceVolume * 400)}px`,
-          height: `${120 + (userVoiceVolume * 400)}px`,
-          borderRadius: '50%',
-          border: '2px solid black',
-          background: 'black',
-          opacity: isOnCall && didAiStartSpeaking ? 0.1 : 0,
-          // transition: 'all 0.01s',
-        }}></div>
+        {typedText}
       </div>
-      {/* Timer display */}
-      <div style={{ color: 'white', fontSize: '24px', fontFamily: 'sans-serif' }}>{formatTime(timer)}</div>
-      {/* Control buttons */}
-      <div style={{
-        display: 'flex',
-        gap: '10px',
-        padding: '10px',
-        borderRadius: '9999px',
-        background: 'rgba(255,255,255,0.05)',
-      }}>
-        {/* Mute button */}
+
+      <div
+        style={{
+          marginBottom: 40,
+        }}>
+        <VolumeVisualizer volume={aiVoiceVolume} maxAdditionalHeight={150} />
+      </div>
+
+      {/* Bottom control */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 40,
+          display: 'flex',
+          alignItems: 'center',
+          width: '100%',
+          paddingLeft: '30px',
+          paddingRight: '30px',
+          boxSizing: 'border-box',
+        }}>
+        {/* Call button with double ring */}
         <div
-          onClick={toggleMute}
           style={{
-            width: '60px',
-            height: '60px',
+            width: 100,
+            height: 100,
             borderRadius: '50%',
-            background: 'rgba(255,255,255,0.1)',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          {isMuted ? MuteIconOn : MuteIconOff}
+            position: 'relative',
+            opacity: initialized ? 1 : 0.25,
+          }}>
+          <div
+            onClick={toggleCall}
+            style={{
+              position: 'absolute',
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #7fffd4, #4169e1)',
+              backgroundSize: '130% 130%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              cursor: 'pointer',
+              boxShadow: '0px 3px 15px rgba(0,0,0,0.05)',
+              animation: 'rotate-background 5s linear infinite',
+              zIndex: 3,
+              transition: 'filter 0.3s ease',
+            }}
+            onMouseDown={event => {
+              // Apply a darker filter when clicked
+              event.currentTarget.style.filter = 'brightness(0.8)'
+            }}
+            onMouseUp={event => {
+              // Remove the darker filter when released
+              event.currentTarget.style.filter = ''
+            }}
+            onMouseEnter={event => {
+              // Apply a slightly dark filter on hover
+              event.currentTarget.style.filter = 'brightness(0.9)'
+            }}
+            onMouseLeave={event => {
+              // Remove the hover effect
+              event.currentTarget.style.filter = ''
+            }}>
+            {isOnCall && didAiStartSpeaking ? PhoneCallIcon : isWaiting ? <Spinner /> : PhoneIcon}
+          </div>
+          {/* Person ring */}
+          <div
+            style={{
+              position: 'absolute',
+              width: `${100 + userVoiceVolume * 400}px`,
+              height: `${100 + userVoiceVolume * 400}px`,
+              borderRadius: '50%',
+              border: '2px solid black',
+              background: 'black',
+              opacity: isOnCall && didAiStartSpeaking ? 0.1 : 0,
+              // transition: 'all 0.01s',
+            }}
+          />
         </div>
-        {/* Volume button */}
+        {/* Timer display */}
         <div
-          onClick={changeVolume}
           style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.1)',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            color: 'white',
+            flex: 1,
+            fontSize: '24px',
+            textAlign: 'center',
+            paddingLeft: 45,
+            opacity: 0.5,
+          }}>
+          {formatTime(timer)}
+        </div>
+        {/* Control buttons */}
+        <div
+          style={{
             display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          {VolumeIcon(volumeLevel)}
+            gap: '10px',
+            padding: '10px',
+            borderRadius: '9999px',
+            background: 'rgba(255,255,255,0.05)',
+          }}>
+          {/* Mute button */}
+          <div
+            onClick={toggleMute}
+            style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              cursor: 'pointer',
+            }}>
+            {isMuted ? MuteIconOn : MuteIconOff}
+          </div>
+          {/* Volume button */}
+          <div
+            onClick={changeVolume}
+            style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              cursor: 'pointer',
+            }}>
+            {VolumeIcon(volumeLevel)}
+          </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Widget;
+export default Widget
